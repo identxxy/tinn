@@ -13,10 +13,10 @@ grid_shape = (3, 3)
 lr = 1e-5
 
 #### input ouput ####
-io_shpae = (batchsize, grid_shape[0], grid_shape[1])
-vif = ti.Vector.field(n_in_dims, ti.f32, shape=io_shpae, needs_grad=True)
-vof = ti.Vector.field(n_out_dims, ti.f32, shape=io_shpae, needs_grad=True)
-tgt = ti.Vector.field(n_out_dims, ti.f32, shape=io_shpae, needs_grad=True)
+io_shape = (batchsize, grid_shape[0], grid_shape[1])
+vif = ti.Vector.field(n_in_dims, ti.f32, shape=io_shape, needs_grad=True)
+vof = ti.Vector.field(n_out_dims, ti.f32, shape=io_shape, needs_grad=True)
+tgt = ti.Vector.field(n_out_dims, ti.f32, shape=io_shape, needs_grad=True)
 #####################
 
 #### network structure #######
@@ -33,7 +33,7 @@ for i in range(depth-1):    # (depth - 1) N x N matrix
     h_w_l.append(ti.Matrix.field(width, width, ti.f32, shape=grid_shape, needs_grad=True))
     h_b_l.append(ti.Vector.field(width, ti.f32, shape=grid_shape, needs_grad=True))
 # a temp buffer for intermediate result
-vmf = ti.Vector.field(width, ti.f32, shape=io_shpae, needs_grad=True)
+vmf = ti.Vector.field(width, ti.f32, shape=io_shape, needs_grad=True)
 
 loss_sf = ti.field(ti.f32, shape=(), needs_grad=True)
 ###############################
@@ -117,7 +117,7 @@ init_vec_random(o_b)
 
 #### train ####
 # forward(vf)
-n_element = io_shpae[0] * io_shpae[1] * io_shpae[2]
+n_element = io_shape[0] * io_shape[1] * io_shape[2]
 for e in range(10):
     with ti.ad.Tape(loss_sf):
         forward(vif, vof)
