@@ -29,7 +29,7 @@ o_b = ti.Vector.field(n_out_dims, ti.f32, shape=grid_shape, needs_grad=True)
 # hidden layer
 h_w_l = []
 h_b_l = []
-for i in range(depth):
+for i in range(depth-1):    # (depth - 1) N x N matrix
     h_w_l.append(ti.Matrix.field(width, width, ti.f32, shape=grid_shape, needs_grad=True))
     h_b_l.append(ti.Vector.field(width, ti.f32, shape=grid_shape, needs_grad=True))
 # a temp buffer for intermediate result
