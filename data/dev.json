@@ -1,0 +1,17 @@
+{
+	"loss": {
+		"otype": "RelativeL2"
+	},
+	"optimizer": {
+		"otype": "SGD",
+		"learning_rate": 1e-2
+	},
+	"network": {
+		"otype": "FullyFusedMLP",
+		"grid_shape": [2, 2],
+		"activation": "ReLU",
+		"output_activation": "None",
+		"n_neurons": 4,
+		"n_hidden_layers": 4
+	}
+}
