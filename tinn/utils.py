@@ -82,12 +82,12 @@ def sample_texture_from_block_2d_coord(
     ):
     ''' Linear interpolation sampling.
 
+    `coord` is coord in block, of shape (batch_size, grid_shape[0], grid_shape[1])
+
     Args:
         texture:    ScalrField of shape (w, h, c)
-        x:          block_size[0]
-        y:          block_size[1]
-        coord:      VectorField of shape (batchi_size, grid_shape[0], grid_shape[1]), n = 2
-        result:     VectorField of shape (batchi_size, grid_shape[0], grid_shape[1]), n = 3
+        coord:      VectorField of shape (batch_size, grid_shape[0], grid_shape[1]), n = 2
+        result:     VectorField of shape (batch_size, grid_shape[0], grid_shape[1]), n = 3
     '''
     assert coord.shape == result.shape, 'coord.shape != result.shape'
     grid_dx = 1. / coord.shape[1]

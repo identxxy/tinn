@@ -154,6 +154,7 @@ class Network:
 
     @ti.kernel
     def init_weight(self, f: ti.template()):
+        # ref: https://github.com/taichi-dev/taichi/blob/master/python/taichi/examples/autodiff/diff_sph/diff_sph.py#L104
         q1 = ti.sqrt(6 / self.n_input_dims) * 0.1   ### IMPORTANT scale
         for I in ti.grouped(f):
             for n in ti.static(range(f.n)):

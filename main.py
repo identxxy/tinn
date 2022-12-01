@@ -14,7 +14,7 @@ n_training_steps = 1000
 n_input_dims = 2    # 2D image coord
 n_output_dims = 3   # RGB color
 
-block_size = (128, 128) # each 8 x 8 pixel use a network.
+block_size = (128, 128) # each block_size pixel use a network.
 
 vis_interval = 10
 vis_scale = 0.25
