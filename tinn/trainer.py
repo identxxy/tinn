@@ -52,7 +52,7 @@ class Trainer:
             print(f'Trainer got new io_shape {io_shape}, totally elements number {self.n_elements}.')
             print(f'Allocated new field to store network output and loss.')
         with ti.ad.Tape(self.loss_sf):
-            self.network.all_forward(input_vf, self.forward_context.output)
+            self.network._all_train(input_vf, self.forward_context.output)
             self.loss_kernel(1./ self.io_shape[0],  self.forward_context.output, target_vf, self.forward_context.losses)
             self.sum_loss()
 

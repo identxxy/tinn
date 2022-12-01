@@ -8,7 +8,7 @@ import tinn
 
 #### Settings ####
 config_path = 'data/dev.json'
-ref_img_path = 'data/images/albert.jpg'
+ref_img_path = 'data/images/test.png'
 batch_size = 2 ** 12
 n_training_steps = 1000
 n_input_dims = 2    # 2D image coord
@@ -17,7 +17,7 @@ n_output_dims = 3   # RGB color
 block_size = (128, 128) # each block_size pixel use a network.
 
 vis_interval = 10
-vis_scale = 0.25
+vis_scale = 2
 ##################
 
 #### Load ####
@@ -76,8 +76,8 @@ tinn.utils.sample_texture_from_block_2d_coord(ref_img_, inference_batch, ground_
 # model
 loss = tinn.Loss(config['loss'])
 optimizer = tinn.Optimizer(config['optimizer'])
-# network = tinn.NetworkWithInputEncoding(n_input_dims, n_output_dims, config['encoding'], config['network'])
-network = tinn.Network(n_input_dims, n_output_dims, config['network'], grid_shape)
+network = tinn.NetworkWithInputEncoding(n_input_dims, n_output_dims, config['encoding'], config['network'], grid_shape)
+# network = tinn.Network(n_input_dims, n_output_dims, config['network'], grid_shape)
 
 trainer = tinn.Trainer(network, optimizer, loss)
 
