@@ -22,29 +22,36 @@ class Network:
             self.output_layer_w = self.input_layer_w
             self.output_layer_b = self.input_layer_b
             self.init_weight(self.input_layer_w)
+            self.layers_l = [self.output_layer_w, self.output_layer_b]
 
         else: 
             self.input_layer_w = ti.Matrix.field(self.n_neurons, self.n_input_dims, Network.dtype, shape=self.grid_shape, needs_grad=True)
             self.input_layer_b = ti.Vector.field(self.n_neurons, Network.dtype, shape=self.grid_shape, needs_grad=True)
-            self.output_layer_w = ti.Matrix.field(self.n_output_dims, self.n_neurons, Network.dtype, shape=self.grid_shape, needs_grad=True)
-            self.output_layer_b = ti.Vector.field(self.n_output_dims, Network.dtype, shape=self.grid_shape, needs_grad=True)
             self.init_weight(self.input_layer_w)
-            self.init_weight(self.output_layer_w)
+            self.layers_l = [self.input_layer_w, self.input_layer_b]
 
             for i in range(self.n_hidden_layers - 1):    # (depth - 1) N x N matrix
-                self.hidden_layers_w_l.append(
-                    ti.Matrix.field(self.n_neurons, self.n_neurons, Network.dtype, shape=self.grid_shape, needs_grad=True)
-                )
-                self.init_weight(self.hidden_layers_w_l[-1])
-                self.hidden_layers_b_l.append(
-                    ti.Vector.field(self.n_neurons, Network.dtype, shape=self.grid_shape, needs_grad=True)
-                )
+                hwl = ti.Matrix.field(self.n_neurons, self.n_neurons, Network.dtype, shape=self.grid_shape, needs_grad=True)
+                hbl = ti.Vector.field(self.n_neurons, Network.dtype, shape=self.grid_shape, needs_grad=True)
+                self.init_weight(hwl)
+                self.hidden_layers_w_l.append(hwl)
+                self.hidden_layers_b_l.append(hbl)
+                self.layers_l.append(hwl)
+                self.layers_l.append(hbl)
+            self.output_layer_w = ti.Matrix.field(self.n_output_dims, self.n_neurons, Network.dtype, shape=self.grid_shape, needs_grad=True)
+            self.output_layer_b = ti.Vector.field(self.n_output_dims, Network.dtype, shape=self.grid_shape, needs_grad=True)
+            self.init_weight(self.output_layer_w)
+            self.layers_l.append(self.output_layer_w)
+            self.layers_l.append(self.output_layer_b)
 
-        # Seems inference is just forward... But not with `ti.ad.Tape()`.
-        self.inference = self.all_forward
+        # intermediate field
+        self.mid_vf_train = None
+        self.io_shape_train = None
+        self.mid_vf_eval = None
+        self.io_shape_eval = None
 
     def all_forward(self, input_vf: ti.template(), output_vf: ti.template()):
-        ''' Forward all NN network.
+        ''' Forward all NN network. Using train field.
 
         The first dimension of `input_vf` and `output_vf` is batch_size,
         while the remaining dimension is the NN array shape.
@@ -55,14 +62,41 @@ class Network:
         assert input_vf.shape == output_vf.shape
         io_shape = input_vf.shape
         self.batch_size = io_shape[0]
-        self.mid_vf = ti.Vector.field(self.n_neurons, Network.dtype, shape=io_shape, needs_grad=True)
+        if (self.mid_vf_train == None) or self.io_shape_train != io_shape:
+            self.io_shape_train = io_shape
+            self.mid_vf_train = ti.Vector.field(self.n_neurons, Network.dtype, shape=io_shape, needs_grad=True)
+            print(f'Network create new internal field of shape {io_shape}')
         if self.n_hidden_layers == 0:
             self.all_forward_last_layer(input_vf, output_vf, self.output_layer_w, self.output_layer_b)
         else:
-            self.all_forward_one_layer(input_vf, self.mid_vf, self.input_layer_w, self.input_layer_b)
+            self.all_forward_one_layer(input_vf, self.mid_vf_train, self.input_layer_w, self.input_layer_b)
             for i in range(self.n_hidden_layers - 1):
-                self.all_forward_one_layer(self.mid_vf, self.mid_vf, self.hidden_layers_w_l[i], self.hidden_layers_b_l[i])
-            self.all_forward_last_layer(self.mid_vf, output_vf, self.output_layer_w, self.output_layer_b)
+                self.all_forward_one_layer(self.mid_vf_train, self.mid_vf_train, self.hidden_layers_w_l[i], self.hidden_layers_b_l[i])
+            self.all_forward_last_layer(self.mid_vf_train, output_vf, self.output_layer_w, self.output_layer_b)
+
+    def all_inference(self, input_vf: ti.template(), output_vf: ti.template()):
+        ''' Forward all NN network. Using eval field.
+
+        The first dimension of `input_vf` and `output_vf` is batch_size,
+        while the remaining dimension is the NN array shape.
+        Args:
+            input_vf:   VectorField of shape (batch_size, network.grid_shape)
+            output_vf:  VectorField of shape (batch_size, network.grid_shape)
+        '''
+        assert input_vf.shape == output_vf.shape
+        io_shape = input_vf.shape
+        self.batch_size = io_shape[0]
+        if (self.mid_vf_eval == None) or self.io_shape_eval != io_shape:
+            self.io_shape_eval = io_shape
+            self.mid_vf_eval = ti.Vector.field(self.n_neurons, Network.dtype, shape=io_shape, needs_grad=True)
+            print(f'Network create new internal field of shape {io_shape}')
+        if self.n_hidden_layers == 0:
+            self.all_forward_last_layer(input_vf, output_vf, self.output_layer_w, self.output_layer_b)
+        else:
+            self.all_forward_one_layer(input_vf, self.mid_vf_eval, self.input_layer_w, self.input_layer_b)
+            for i in range(self.n_hidden_layers - 1):
+                self.all_forward_one_layer(self.mid_vf_eval, self.mid_vf_eval, self.hidden_layers_w_l[i], self.hidden_layers_b_l[i])
+            self.all_forward_last_layer(self.mid_vf_eval, output_vf, self.output_layer_w, self.output_layer_b)
 
     @ti.kernel
     def all_forward_one_layer(self,
@@ -84,7 +118,7 @@ class Network:
                 b = bias_layer[I]
                 # results
                 r = w @ v + b
-                self.activation(r)
+                ti.static(self.activation)(r)
         
                 output_vf[i, I] = r
 
@@ -108,27 +142,19 @@ class Network:
                 b = bias_layer[I]
                 # results
                 r = w @ v + b
-                self.output_activation(r)
+                ti.static(self.output_activation)(r)
         
                 output_vf[i, I] = r
 
     @property
-    def layers_l(self):
+    def get_layers_l(self):
         ''' All layers including weight and bias from input to output.
         '''
-        l = [self.input_layer_w, self.input_layer_b]
-        if self.n_hidden_layers == 0:
-            return l
-        for i in range(self.n_hidden_layers - 1):
-            l.append(self.hidden_layers_w_l[i])
-            l.append(self.hidden_layers_b_l[i])
-        l.append(self.output_layer_w)
-        l.append(self.output_layer_b)
-        return l
+        return self.layers_l
 
     @ti.kernel
     def init_weight(self, f: ti.template()):
-        q1 = ti.sqrt(6 / self.n_input_dims) * 0.01
+        q1 = ti.sqrt(6 / self.n_input_dims) * 0.1   ### IMPORTANT scale
         for I in ti.grouped(f):
             for n in ti.static(range(f.n)):
                 for m in ti.static(range(f.m)):

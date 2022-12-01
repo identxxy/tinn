@@ -36,7 +36,7 @@ def relative_l2(
     for I in ti.grouped(prediction):
         l2_loss = (prediction[I] - target[I])**2
         det = (prediction[I]**2 + 0.01)
-        values[I] += (l2_loss / det).sum() * scale
+        values[I] = (l2_loss / det).sum() * scale
 
 loss_dict = {
     'l1': l1,

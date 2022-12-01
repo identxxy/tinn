@@ -1,16 +1,16 @@
 import taichi as ti
 
-ti.init(ti.cuda, random_seed=0)
+ti.init(ti.cuda, random_seed=0, kernel_profiler = True)
 
 n_in_dims = 2
 n_out_dims = 3
 
 depth = 4   # must > 0
 width = 4
-batch_size = 64
-grid_shape = (3, 3)
+batch_size = 2**16
+grid_shape = (5, 5)
 
-lr = 1e-5
+lr = 1e-4
 
 #### input ouput ####
 io_shape = (batch_size, grid_shape[0], grid_shape[1])
@@ -118,14 +118,16 @@ init_vec_random(o_b)
 #### train ####
 # forward(vf)
 n_element = io_shape[0] * io_shape[1] * io_shape[2]
-for e in range(10):
+for e in range(20):
     with ti.ad.Tape(loss_sf):
         forward(vif, vof)
-        l2_loss(1. / n_element, vof, tgt, loss_sf)
+        l2_loss(1. / batch_size, vof, tgt, loss_sf)
     step(lr)
 
     print(f'==== loss ==== epoch {e}')
     print(loss_sf[None])
+    ti.profiler.print_kernel_profiler_info()
+    input()
 
 print('==== weight ====')
 print('i_w', i_w)
