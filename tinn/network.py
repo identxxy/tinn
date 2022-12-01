@@ -1,15 +1,14 @@
 import taichi as ti
-
 @ti.data_oriented
 class Network:
     # precision type
     dtype = ti.f32
     
-    def __init__(self, n_input_dims, n_output_dims, json) -> None:
+    def __init__(self, n_input_dims, n_output_dims, json, grid_shape=1) -> None:
         self.otype = json['otype']  # no use... just naive matrix multiplication.
-        self.grid_shape = json['grid_shape']
-        self.activation = activation_dict[json['activation']]
-        self.output_activation = activation_dict[json['output_activation']]
+        self.grid_shape = grid_shape
+        self.activation = activation_dict[json['activation'].lower()]
+        self.output_activation = activation_dict[json['output_activation'].lower()]
         self.n_input_dims = n_input_dims
         self.n_output_dims = n_output_dims
         self.n_neurons = json['n_neurons']
@@ -22,19 +21,24 @@ class Network:
             self.input_layer_b = ti.Vector.field(self.n_output_dims, Network.dtype, shape=self.grid_shape, needs_grad=True)
             self.output_layer_w = self.input_layer_w
             self.output_layer_b = self.input_layer_b
+            self.init_weight(self.input_layer_w)
 
-        self.input_layer_w = ti.Matrix.field(self.n_hidden_layers, self.n_input_dims, Network.dtype, shape=self.grid_shape, needs_grad=True)
-        self.input_layer_b = ti.Vector.field(self.n_hidden_layers, Network.dtype, shape=self.grid_shape, needs_grad=True)
-        self.output_layer_w = ti.Matrix.field(self.n_output_dims, self.n_hidden_layers, Network.dtype, shape=self.grid_shape, needs_grad=True)
-        self.output_layer_b = ti.Vector.field(self.n_output_dims, Network.dtype, shape=self.grid_shape, needs_grad=True)
-    
-        for i in range(self.n_hidden_layers - 1):    # (depth - 1) N x N matrix
-            self.hidden_layers_w_l.append(
-                ti.Matrix.field(self.n_neurons, self.n_neurons, Network.dtype, shape=self.grid_shape, needs_grad=True)
-            )
-            self.hidden_layers_b_l.append(
-                ti.Vector.field(self.n_neurons, Network.dtype, shape=self.grid_shape, needs_grad=True)
-            )
+        else: 
+            self.input_layer_w = ti.Matrix.field(self.n_neurons, self.n_input_dims, Network.dtype, shape=self.grid_shape, needs_grad=True)
+            self.input_layer_b = ti.Vector.field(self.n_neurons, Network.dtype, shape=self.grid_shape, needs_grad=True)
+            self.output_layer_w = ti.Matrix.field(self.n_output_dims, self.n_neurons, Network.dtype, shape=self.grid_shape, needs_grad=True)
+            self.output_layer_b = ti.Vector.field(self.n_output_dims, Network.dtype, shape=self.grid_shape, needs_grad=True)
+            self.init_weight(self.input_layer_w)
+            self.init_weight(self.output_layer_w)
+
+            for i in range(self.n_hidden_layers - 1):    # (depth - 1) N x N matrix
+                self.hidden_layers_w_l.append(
+                    ti.Matrix.field(self.n_neurons, self.n_neurons, Network.dtype, shape=self.grid_shape, needs_grad=True)
+                )
+                self.init_weight(self.hidden_layers_w_l[-1])
+                self.hidden_layers_b_l.append(
+                    ti.Vector.field(self.n_neurons, Network.dtype, shape=self.grid_shape, needs_grad=True)
+                )
 
         # Seems inference is just forward... But not with `ti.ad.Tape()`.
         self.inference = self.all_forward
@@ -82,7 +86,7 @@ class Network:
                 r = w @ v + b
                 self.activation(r)
         
-            output_vf[i, I] = r
+                output_vf[i, I] = r
 
     @ti.kernel
     def all_forward_last_layer(self,
@@ -106,7 +110,7 @@ class Network:
                 r = w @ v + b
                 self.output_activation(r)
         
-            output_vf[i, I] = r
+                output_vf[i, I] = r
 
     @property
     def layers_l(self):
@@ -120,6 +124,15 @@ class Network:
             l.append(self.hidden_layers_b_l[i])
         l.append(self.output_layer_w)
         l.append(self.output_layer_b)
+        return l
+
+    @ti.kernel
+    def init_weight(self, f: ti.template()):
+        q1 = ti.sqrt(6 / self.n_input_dims) * 0.01
+        for I in ti.grouped(f):
+            for n in ti.static(range(f.n)):
+                for m in ti.static(range(f.m)):
+                    f[I][n, m] = (ti.random() * 2 - 1) *q1
 
 # TODO
 @ti.data_oriented
