@@ -7,7 +7,7 @@ n_out_dims = 3
 
 depth = 4   # must > 0
 width = 4
-batchsize = 8
+batchsize = 64
 grid_shape = (3, 3)
 
 lr = 1e-5
@@ -29,7 +29,7 @@ o_b = ti.Vector.field(n_out_dims, ti.f32, shape=grid_shape, needs_grad=True)
 # hidden layer
 h_w_l = []
 h_b_l = []
-for i in range(depth-1):    # (depth - 1) N x N matrix
+for i in range(depth - 1):    # (depth - 1) N x N matrix
     h_w_l.append(ti.Matrix.field(width, width, ti.f32, shape=grid_shape, needs_grad=True))
     h_b_l.append(ti.Vector.field(width, ti.f32, shape=grid_shape, needs_grad=True))
 # a temp buffer for intermediate result
@@ -63,7 +63,7 @@ def forward_layer(vif: ti.template(), vof: ti.template(), wf: ti.template(), bf:
 
 def forward(vif, vof):
     forward_layer(vif, vmf, i_w, i_b)
-    for i in range(depth):
+    for i in range(depth - 1):
         forward_layer(vmf, vmf, h_w_l[i], h_b_l[i])
     forward_layer(vmf, vof, o_w, o_b)
 
@@ -95,7 +95,7 @@ def step_layer(lr: ti.f32, f: ti.template()):
 def step(lr):
     step_layer(lr, i_w)
     step_layer(lr, i_b)
-    for i in range(depth):
+    for i in range(depth - 1):
         step_layer(lr, h_w_l[i])
         step_layer(lr, h_b_l[i])
     step_layer(lr, o_w)
@@ -107,7 +107,7 @@ init_vec_random(vif)
 init_mat_random(i_w)
 init_vec_random(i_b)
 
-for i in range(depth):
+for i in range(depth - 1):
     init_mat_random(h_w_l[i])
     init_vec_random(h_b_l[i])
 
