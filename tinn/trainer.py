@@ -33,12 +33,12 @@ class Trainer:
     def training_step(self, input_vf: ti.template(), target_vf: ti.template(), run_optimizer=True):
         ''' Train all NN network one step.
 
-        The first dimension of `input_vf` and `output_vf` is batchsize,
+        The first dimension of `input_vf` and `output_vf` is batch_size,
         while the remaining dimension is the NN array shape.
         This function allocate output field for the network to forward.
         Args:
-            input_vf:   VectorField of shape (batchsize, network.grid_shape)
-            output_vf:  VectorField of shape (batchsize, network.grid_shape)
+            input_vf:   VectorField of shape (batch_size, network.grid_shape)
+            output_vf:  VectorField of shape (batch_size, network.grid_shape)
         '''
         assert input_vf.shape == target_vf.shape
         io_shape = input_vf.shape

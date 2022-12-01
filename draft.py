@@ -7,13 +7,13 @@ n_out_dims = 3
 
 depth = 4   # must > 0
 width = 4
-batchsize = 64
+batch_size = 64
 grid_shape = (3, 3)
 
 lr = 1e-5
 
 #### input ouput ####
-io_shape = (batchsize, grid_shape[0], grid_shape[1])
+io_shape = (batch_size, grid_shape[0], grid_shape[1])
 vif = ti.Vector.field(n_in_dims, ti.f32, shape=io_shape, needs_grad=True)
 vof = ti.Vector.field(n_out_dims, ti.f32, shape=io_shape, needs_grad=True)
 tgt = ti.Vector.field(n_out_dims, ti.f32, shape=io_shape, needs_grad=True)
@@ -141,6 +141,6 @@ print('o_b.grad', o_b.grad)
 print('==============')
 print(f'depth: {depth}')
 print(f'width: {width}')
-print(f'batchsize: {batchsize}')
+print(f'batch_size: {batch_size}')
 print(f'grid_shape: {grid_shape}')
 print('==============')

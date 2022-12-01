@@ -42,15 +42,15 @@ class Network:
     def all_forward(self, input_vf: ti.template(), output_vf: ti.template()):
         ''' Forward all NN network.
 
-        The first dimension of `input_vf` and `output_vf` is batchsize,
+        The first dimension of `input_vf` and `output_vf` is batch_size,
         while the remaining dimension is the NN array shape.
         Args:
-            input_vf:   VectorField of shape (batchsize, network.grid_shape)
-            output_vf:  VectorField of shape (batchsize, network.grid_shape)
+            input_vf:   VectorField of shape (batch_size, network.grid_shape)
+            output_vf:  VectorField of shape (batch_size, network.grid_shape)
         '''
         assert input_vf.shape == output_vf.shape
         io_shape = input_vf.shape
-        self.batchsize = io_shape[0]
+        self.batch_size = io_shape[0]
         self.mid_vf = ti.Vector.field(self.n_neurons, Network.dtype, shape=io_shape, needs_grad=True)
         if self.n_hidden_layers == 0:
             self.all_forward_last_layer(input_vf, output_vf, self.output_layer_w, self.output_layer_b)
@@ -70,11 +70,11 @@ class Network:
         ''' Forward one layer in all NN network.
         
         Args:
-            input_vf:    VectorField of shape (batchsize)
-            output_vf:   VectorField of shape (batchsize)
+            input_vf:    VectorField of shape (batch_size)
+            output_vf:   VectorField of shape (batch_size)
         '''
         for I in ti.grouped(weight_layer):
-            for i in range(self.batchsize):
+            for i in range(self.batch_size):
                 v = input_vf[i, I]
                 w = weight_layer[I]
                 b = bias_layer[I]
@@ -94,11 +94,11 @@ class Network:
         ''' Forward the last layer in all NN network.
         
         Args:
-            input_vf:    VectorField of shape (batchsize)
-            output_vf:   VectorField of shape (batchsize)
+            input_vf:    VectorField of shape (batch_size)
+            output_vf:   VectorField of shape (batch_size)
         '''
         for I in ti.grouped(weight_layer):
-            for i in range(self.batchsize):
+            for i in range(self.batch_size):
                 v = input_vf[i, I]
                 w = weight_layer[I]
                 b = bias_layer[I]

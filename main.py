@@ -37,8 +37,8 @@ ti.init(ti.cuda, device_memory_GB=8, debug=True)
 ref_img_ = ti.field(ti.f32, whc)
 ref_img_.from_numpy(ref_img)
 
-training_target = ti.Vector.field(n_output_dims, ti.f32, batch_size)
-training_batch = ti.Vector.field(n_input_dims, ti.f32, batch_size)
+training_target = ti.Vector.field(n_output_dims, ti.f32, shape=batch_size)
+training_batch = ti.Vector.field(n_input_dims, ti.f32, shape=batch_size)
 
 prediction = ti.Vector.field(n_output_dims, ti.f32, (whc[0], whc[1]))
 inference_batch = ti.Vector.field(n_input_dims, ti.f32, (whc[0], whc[1]))
