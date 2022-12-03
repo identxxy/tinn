@@ -65,7 +65,7 @@ class Network:
         if (self.mid_vf_eval == None) or self.io_shape_eval != io_shape:
             self.io_shape_eval = io_shape
             self.mid_vf_eval = ti.Vector.field(self.n_neurons, Network.dtype, shape=io_shape, needs_grad=True)
-            print(f'Network create new internal field of shape {io_shape} for inference all NN.')
+            print(f'Network create new internal field of shape {io_shape} for inference.')
         if self.n_hidden_layers == 0:
             self._forward_last_layer_all(input_vf, output_vf, self.output_layer_w, self.output_layer_b)
         else:
@@ -82,7 +82,7 @@ class Network:
         Args:
             input_vf:   VectorField of shape (batch_size, network.grid_shape)
             output_vf:  VectorField of shape (batch_size, network.grid_shape)
-            at:         index of network.grid_shape
+            mask:       mask of shape network.grid_shape
         '''
         assert input_vf.shape == output_vf.shape
         io_shape = input_vf.shape
@@ -90,7 +90,7 @@ class Network:
         if (self.mid_vf_eval == None) or self.io_shape_eval != io_shape:
             self.io_shape_eval = io_shape
             self.mid_vf_eval = ti.Vector.field(self.n_neurons, Network.dtype, shape=io_shape, needs_grad=True)
-            print(f'Network create new internal field of shape {io_shape} for inference one NN.')
+            print(f'Network create new internal field of shape {io_shape} for inference.')
         if self.n_hidden_layers == 0:
             self._forward_last_layer_one(input_vf, output_vf, self.output_layer_w, self.output_layer_b, at)
         else:
@@ -114,7 +114,7 @@ class Network:
         if (self.mid_vf_train == None) or self.io_shape_train != io_shape:
             self.io_shape_train = io_shape
             self.mid_vf_train = ti.Vector.field(self.n_neurons, Network.dtype, shape=io_shape, needs_grad=True)
-            print(f'Network create new internal field of shape {io_shape} for training all NN.')
+            print(f'Network create new internal field of shape {io_shape} for training.')
         if self.n_hidden_layers == 0:
             self._forward_last_layer_all(input_vf, output_vf, self.output_layer_w, self.output_layer_b)
         else:
@@ -131,7 +131,7 @@ class Network:
         Args:
             input_vf:   VectorField of shape (batch_size, network.grid_shape)
             output_vf:  VectorField of shape (batch_size, network.grid_shape)
-            at:         index of network.grid_shape
+            mask:       mask of shape network.grid_shape
         '''
         assert input_vf.shape == output_vf.shape
         io_shape = input_vf.shape
@@ -139,7 +139,7 @@ class Network:
         if (self.mid_vf_train == None) or self.io_shape_train != io_shape:
             self.io_shape_train = io_shape
             self.mid_vf_train = ti.Vector.field(self.n_neurons, Network.dtype, shape=io_shape, needs_grad=True)
-            print(f'Network create new internal field of shape {io_shape} for training one NN.')
+            print(f'Network create new internal field of shape {io_shape} for training.')
         if self.n_hidden_layers == 0:
             self._forward_last_layer_one(input_vf, output_vf, self.output_layer_w, self.output_layer_b, at)
         else:
@@ -206,7 +206,7 @@ class Network:
             output_vf: ti.template(),
             weight_layer: ti.template(),
             bias_layer: ti.template(),
-            at: ti.template()
+            mask: ti.template()
         ):
         ''' Forward one layer in one NN network.
         
@@ -215,15 +215,10 @@ class Network:
             output_vf:      VectorField of shape (batch_size)
             weight_layer:   layer in network, shape network.grid_shape
             bias_layer:     layer in network, shape network.grid_shape
-            at:             index of network.grid_shape
+            mask:           mask of shape network.grid_shape
         '''
-        for I in ti.grouped(weight_layer):
-            # ugly hack
-            yes = 1
-            for d in ti.static(range(at.shape[1])):
-                if I[d] < at[0, d] or I[d] >= at[1, d]:
-                    yes = 0
-            if yes == 1:
+        for I in ti.grouped(mask):
+            if mask[I] == 1:
                 for i in range(self.batch_size):
                     v = input_vf[i, I]
                     w = weight_layer[I]
@@ -240,7 +235,7 @@ class Network:
             output_vf: ti.template(),
             weight_layer: ti.template(),
             bias_layer: ti.template(),
-            at: ti.template()
+            mask: ti.template()
         ):
         ''' Forward the last layer in one NN network.
         
@@ -249,15 +244,10 @@ class Network:
             output_vf:      VectorField of shape (batch_size)
             weight_layer:   layer in network, shape network.grid_shape
             bias_layer:     layer in network, shape network.grid_shape
-            at:             index of network.grid_shape
+            mask:           mask of shape network.grid_shape
         '''
-        for I in ti.grouped(weight_layer):
-            # ugly hack
-            yes = 1
-            for d in ti.static(range(at.shape[1])):
-                if I[d] < at[0, d] or I[d] >= at[1, d]:
-                    yes = 0
-            if yes == 1:
+        for I in ti.grouped(mask):
+            if mask[I] == 1:
                 for i in range(self.batch_size):
                     v = input_vf[i, I]
                     w = weight_layer[I]

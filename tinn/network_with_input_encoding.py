@@ -29,7 +29,7 @@ class NetworkWithInputEncoding(Network):
             self.io_shape_eval = io_shape
             self.encode_vf_eval = ti.Vector.field(self.n_encoded_dims, Network.dtype, shape=io_shape)
             print(f'Encoding create new internal field of shape {io_shape} for inference.')
-        self.encoding.kernel(input_vf, self.encode_vf_eval)
+        self.encoding.encode_all(input_vf, self.encode_vf_eval)
         Network.inference_all(self, self.encode_vf_eval, output_vf)
 
     def inference_one(self, input_vf: ti.template(), output_vf: ti.template(), at: ti.template()):
@@ -49,7 +49,7 @@ class NetworkWithInputEncoding(Network):
             self.io_shape_eval = io_shape
             self.encode_vf_eval = ti.Vector.field(self.n_encoded_dims, Network.dtype, shape=io_shape)
             print(f'Encoding create new internal field of shape {io_shape} for inference.')
-        self.encoding.kernel(input_vf, self.encode_vf_eval)
+        self.encoding.encode_one(input_vf, self.encode_vf_eval, at)
         Network.inference_one(self, self.encode_vf_eval, output_vf, at)
 
     def _train_all(self, input_vf: ti.template(), output_vf: ti.template()):
@@ -68,7 +68,7 @@ class NetworkWithInputEncoding(Network):
             self.io_shape_train = io_shape
             self.encode_vf_train = ti.Vector.field(self.n_encoded_dims, Network.dtype, shape=io_shape)
             print(f'Encoding create new internal field of shape {io_shape} for training.')
-        self.encoding.kernel(input_vf, self.encode_vf_train)
+        self.encoding.encode_all(input_vf, self.encode_vf_train)
         Network._train_all(self, self.encode_vf_train, output_vf)
 
     def _train_one(self, input_vf: ti.template(), output_vf: ti.template(), at: ti.template()):
@@ -88,5 +88,5 @@ class NetworkWithInputEncoding(Network):
             self.io_shape_train = io_shape
             self.encode_vf_train = ti.Vector.field(self.n_encoded_dims, Network.dtype, shape=io_shape)
             print(f'Encoding create new internal field of shape {io_shape} for training.')
-        self.encoding.kernel(input_vf, self.encode_vf_train)
+        self.encoding.encode_one(input_vf, self.encode_vf_train, at)
         Network._train_one(self, self.encode_vf_train, output_vf, at)

@@ -22,16 +22,12 @@ class Loss:
             prediction: ti.template(),
             target: ti.template(),
             values: ti.template(),
-            at: ti.template()
+            mask: ti.template()
         ):
-        for I in ti.grouped(prediction):
-            # ugly hack
-            yes = 1
-            for d in ti.static(range(at.shape[1])):
-                if I[1+d] < at[0, d] or I[1+d] >= at[1, d]: # 0 is the batch_size
-                    yes = 0
-            if yes == 1:
-                self.loss_func(scale, prediction[I], target[I], values[I])
+        for I in ti.grouped(mask):
+            if mask[I] == 1:
+                for i in range(prediction.shape[0]):
+                    self.loss_func(scale, prediction[i, I], target[i, I], values[i, I])
 
 ##### loss functions ####
 @ti.func

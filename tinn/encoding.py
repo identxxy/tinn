@@ -29,16 +29,12 @@ class Encoding:
     def encode_one(self,
         input_vf: ti.template(),
         output_vf: ti.template(),
-        at: ti.template()
+        mask: ti.template()
     ):
-        for I in ti.grouped(input_vf):
-            # ugly hack
-            yes = 1
-            for d in ti.static(range(at.shape[1])):
-                if I[1+d] < at[0, d] or I[1+d] >= at[1, d]: # 0 is the batch_size
-                    yes = 0
-            if yes == 1:
-                self.func(input_vf[I], output_vf[I])
+        for I in ti.grouped(mask):
+            if mask[I] == 1:
+                for i in range(input_vf.shape[0]):
+                    self.func(input_vf[i, I], output_vf[i, I])
 
     @ti.func
     def frequency(self, input_vf: ti.template(), output_vf: ti.template()):

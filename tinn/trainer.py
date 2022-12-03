@@ -103,12 +103,8 @@ class Trainer:
             self.loss_sf_all[None] += self.losses[I]
 
     @ti.kernel
-    def sum_loss_one(self, at: ti.template()):
-        for I in ti.grouped(self.losses):
-            # ugly hack
-            yes = 1
-            for d in ti.static(range(at.shape[1])):
-                if I[1+d] < at[0, d] or I[1+d] >= at[1, d]: # 0 is the batch_size
-                    yes = 0
-            if yes == 1:
-                self.loss_sf_one[None] += self.losses[I]
+    def sum_loss_one(self, mask: ti.template()):
+        for I in ti.grouped(mask):
+            if mask[I] == 1:
+                for i in range(self.losses.shape[0]):
+                    self.loss_sf_one[None] += self.losses[i, I]

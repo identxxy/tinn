@@ -27,14 +27,7 @@ class Optimizer:
             #     print('0grad, ', I)
 
     @ti.kernel
-    def step_layer_one(self, l: ti.template(), at: ti.template()):
-        for I in ti.grouped(l):
-            # ugly hack
-            yes = 1
-            for d in ti.static(range(at.shape[1])):
-                if I[d] < at[0, d] or I[d] >= at[1, d]:
-                    yes = 0
-            if yes == 1:
+    def step_layer_one(self, l: ti.template(), mask: ti.template()):
+        for I in ti.grouped(mask):
+            if mask[I] == 1:
                 l[I] -= self.learning_rate * l.grad[I]
-                if l.grad[I].sum() == 0. :
-                    print('0grad, ', I)

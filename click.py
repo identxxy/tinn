@@ -77,13 +77,13 @@ tinn.utils.sample_texture_from_block_2d_coord(ref_img_, inference_batch, ground_
 tinn.utils.meshgrid_coord_2d(block_size[0], block_size[1], training_batch)    # test
 tinn.utils.sample_texture_from_block_2d_coord(ref_img_, training_batch, training_target)  # 1 ms
 
-selected_field = ti.field(ti.i32, shape=(2, 2)) # first dim for start/stop, second dim for len(grid_shape) = 2
+mask = ti.field(ti.u8, shape=grid_shape)
 
 # model
 loss = tinn.Loss(config['loss'])
 optimizer = tinn.Optimizer(config['optimizer'])
-# network = tinn.NetworkWithInputEncoding(n_input_dims, n_output_dims, config['encoding'], config['network'], grid_shape)
-network = tinn.Network(n_input_dims, n_output_dims, config['network'], grid_shape)
+network = tinn.NetworkWithInputEncoding(n_input_dims, n_output_dims, config['encoding'], config['network'], grid_shape)
+# network = tinn.Network(n_input_dims, n_output_dims, config['network'], grid_shape)
 
 trainer = tinn.Trainer(network, optimizer, loss)
 
@@ -116,11 +116,9 @@ while window.running:
         print(f'# Step ALL NN {n_trained_step} \t loss: {loss_val:.4f}')
 
     if window.is_pressed(ti.ui.RMB):
-        selected_field[0, 0] = cursor_block_xni
-        selected_field[0, 1] = cursor_block_yni
-        selected_field[1, 0] = cursor_block_xni + 1
-        selected_field[1, 1] = cursor_block_yni + 1
-        ctx = trainer.training_step_one(training_batch, training_target, selected_field)
+        mask.fill(0)
+        mask[cursor_block_xni, cursor_block_yni] = 1
+        ctx = trainer.training_step_one(training_batch, training_target, mask)
         loss_val = ctx.loss[None]
         print(f'** Step NN grid id {cursor_block_xni} {cursor_block_yni} \t loss: {loss_val:.4f}')
 
