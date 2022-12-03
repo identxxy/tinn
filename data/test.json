@@ -1,6 +1,6 @@
 {
 	"loss": {
-		"otype": "l2"
+		"otype": "L2"
 	},
 	"optimizer": {
 		"otype": "SGD",

@@ -9,8 +9,8 @@ import tinn
 #### Settings ####
 config_path = 'data/dev.json'
 ref_img_path = 'data/images/albert-640.png'
-batch_size = 64 ** 2
-n_training_steps = 10000000
+batch_size = 2 ** 12
+n_training_steps = 1000
 n_input_dims = 2    # 2D image coord
 n_output_dims = 3   # RGB color
 
@@ -73,15 +73,17 @@ inference_batch = ti.Vector.field(n_input_dims, ti.f32, shape=predict_io_shape)
 tinn.utils.meshgrid_coord_2d(block_size[0], block_size[1], inference_batch)
 tinn.utils.sample_texture_from_block_2d_coord(ref_img_, inference_batch, ground_truth)
 
-# or non-random....
-tinn.utils.meshgrid_coord_2d(block_size[0], block_size[1], training_batch)
+# non-random train
+tinn.utils.meshgrid_coord_2d(block_size[0], block_size[1], training_batch)    # test
 tinn.utils.sample_texture_from_block_2d_coord(ref_img_, training_batch, training_target)  # 1 ms
+
+selected_field = ti.field(ti.i32, shape=(2, 2)) # first dim for start/stop, second dim for len(grid_shape) = 2
 
 # model
 loss = tinn.Loss(config['loss'])
 optimizer = tinn.Optimizer(config['optimizer'])
-network = tinn.NetworkWithInputEncoding(n_input_dims, n_output_dims, config['encoding'], config['network'], grid_shape)
-# network = tinn.Network(n_input_dims, n_output_dims, config['network'], grid_shape)
+# network = tinn.NetworkWithInputEncoding(n_input_dims, n_output_dims, config['encoding'], config['network'], grid_shape)
+network = tinn.Network(n_input_dims, n_output_dims, config['network'], grid_shape)
 
 trainer = tinn.Trainer(network, optimizer, loss)
 
@@ -94,33 +96,6 @@ prev_time = time.time()
 n_trained_step = 0
 is_end = False
 while window.running:
-    # train
-    # if window.is_pressed(' '):
-    if n_trained_step < n_training_steps:
-        n_trained_step += 1
-        tinn.utils.generate_random_uniform_2d(training_batch)   # 1 ms
-        tinn.utils.sample_texture_from_block_2d_coord(ref_img_, training_batch, training_target)  # 1 ms
-        ctx = trainer.training_step_all(training_batch, training_target)    # 3000 ms...
-        loss_val = ctx.loss[None]
-
-        # visualize
-        if n_trained_step % vis_interval == 0:
-            elapsed_time = time.time() - prev_time
-            print(f'# Step {n_trained_step} \t loss: {loss_val:.4f} \t elapsed time: {elapsed_time * 1e3} ms')
-
-            network.inference_all(inference_batch, prediction)  # 1000 ms...
-            tinn.utils.flatten_2d_grid_ouput(block_size[0], block_size[1], prediction, vis_img_rgb) # 1ms
-            vis_img = vis_img_rgb
-            prev_time = time.time()
-
-    # end train
-    # else:
-    #     if not is_end:
-    #         is_end = True
-    #         print(f"End training {n_trained_step} steps.")
-
-
-    # debug
     cursor_x, cursor_y = window.get_cursor_pos()
     cursor_xi = int(cursor_x * whc[0])
     cursor_yi = int(cursor_y * whc[1])
@@ -128,22 +103,43 @@ while window.running:
     cursor_block_xmi = cursor_xi % block_size[0]
     cursor_block_yni = cursor_yi // block_size[1]
     cursor_block_ymi = cursor_yi % block_size[1]
+    # train
+    # if window.is_pressed(' '):
+    if window.is_pressed(ti.ui.LMB):
+        selected_block = (cursor_block_xni, cursor_block_yni)
+        n_trained_step += 1
+        # tinn.utils.generate_random_uniform_2d(training_batch)   # 1 ms
+        # tinn.utils.meshgrid_coord_2d(block_size[0], block_size[1], training_batch)    # test
+        # tinn.utils.sample_texture_from_block_2d_coord(ref_img_, training_batch, training_target)  # 1 ms
+        ctx = trainer.training_step_all(training_batch, training_target)
+        loss_val = ctx.loss[None]
+        print(f'# Step ALL NN {n_trained_step} \t loss: {loss_val:.4f}')
+
+    if window.is_pressed(ti.ui.RMB):
+        selected_field[0, 0] = cursor_block_xni
+        selected_field[0, 1] = cursor_block_yni
+        selected_field[1, 0] = cursor_block_xni + 1
+        selected_field[1, 1] = cursor_block_yni + 1
+        ctx = trainer.training_step_one(training_batch, training_target, selected_field)
+        loss_val = ctx.loss[None]
+        print(f'** Step NN grid id {cursor_block_xni} {cursor_block_yni} \t loss: {loss_val:.4f}')
+
+    # visualize
+    curr_time = time.time()
+    if curr_time - prev_time > 1.: # 1FPS
+        prev_time = curr_time
+        network.inference_all(inference_batch, prediction)  # 1000 ms...
+        tinn.utils.flatten_2d_grid_ouput(block_size[0], block_size[1], prediction, vis_img_rgb) # 1ms
+        vis_img = vis_img_rgb
 
     if window.is_pressed('r'):
         tinn.utils.flatten_2d_grid_ouput(block_size[0], block_size[1], training_target, vis_img_rgb)
-        vis_img = vis_img_rgb
-    if window.is_pressed(' '):
         vis_img = vis_img_rgb
     if window.is_pressed('l'):
         loss.loss_all(1., prediction, ground_truth, eval_losses)
         tinn.utils.flatten_2d_grid_ouput(block_size[0], block_size[1], eval_losses, vis_img_bw) # 1ms
         vis_img = vis_img_bw
 
-    if window.is_pressed('d'):
-        # layers = network.layers_l
-        # print(layers[0].grad)
-        encoded = network.encode_vf_train
-        print(encoded)
     if window.is_pressed('p'):
         ti.profiler.print_kernel_profiler_info()
 

@@ -6,18 +6,19 @@ import time
 
 import tinn
 
-#### Settings ####
-config_path = 'data/dev.json'
-ref_img_path = 'data/images/albert-640.png'
-batch_size = 64 ** 2
-n_training_steps = 10000000
-n_input_dims = 2    # 2D image coord
-n_output_dims = 3   # RGB color
+import matplotlib.pyplot as plt # Save my ass!
 
-block_size = (64, 64) # each block_size pixel use a network.
+#### Settings ####
+config_path = 'data/test.json'
+ref_img_path = 'data/images/albert-640.png'
+batch_size = 2 ** 10
+n_input_dims = 2    # 2D image coord
+n_output_dims = 1   # RGB color
+
+block_size = (8, 8) # each block_size pixel use a network.
 
 vis_interval = 10
-vis_scale = 2
+vis_scale = 2.
 ##################
 
 #### Load ####
@@ -47,12 +48,12 @@ print(f"** The `grid_shape` is {grid_shape}.")
 if ref_img.dtype == np.uint8:
     ref_img = ref_img.astype(np.float32) / 255.
 whc = ref_img.shape
-if is_bw:   # black white
-    ref_img = np.stack([ref_img, ref_img, ref_img], 2)
-    whc = ref_img.shape
+# if is_bw:   # black white
+#     ref_img = np.stack([ref_img, ref_img, ref_img], 2)
+#     whc = ref_img.shape
 ##################
 
-ti.init(ti.cuda, device_memory_GB=8, debug=True, random_seed=0, kernel_profiler = True)
+ti.init(ti.cuda, device_memory_GB=8, debug=True, random_seed=1, kernel_profiler = True)
 
 # image
 ref_img_ = ti.field(ti.f32, shape=whc)
@@ -71,56 +72,45 @@ ground_truth = ti.Vector.field(n_output_dims, ti.f32, shape=predict_io_shape)
 eval_losses = ti.field(ti.f32, shape=predict_io_shape)
 inference_batch = ti.Vector.field(n_input_dims, ti.f32, shape=predict_io_shape)
 tinn.utils.meshgrid_coord_2d(block_size[0], block_size[1], inference_batch)
-tinn.utils.sample_texture_from_block_2d_coord(ref_img_, inference_batch, ground_truth)
-
-# or non-random....
-tinn.utils.meshgrid_coord_2d(block_size[0], block_size[1], training_batch)
-tinn.utils.sample_texture_from_block_2d_coord(ref_img_, training_batch, training_target)  # 1 ms
+tinn.utils.sample_texture_from_block_2d_coord_bw(ref_img_, inference_batch, ground_truth)
 
 # model
 loss = tinn.Loss(config['loss'])
 optimizer = tinn.Optimizer(config['optimizer'])
-network = tinn.NetworkWithInputEncoding(n_input_dims, n_output_dims, config['encoding'], config['network'], grid_shape)
-# network = tinn.Network(n_input_dims, n_output_dims, config['network'], grid_shape)
+# network = tinn.NetworkWithInputEncoding(n_input_dims, n_output_dims, config['encoding'], config['network'], grid_shape)
+network = tinn.Network(n_input_dims, n_output_dims, config['network'], grid_shape)
 
 trainer = tinn.Trainer(network, optimizer, loss)
+
+n_trained_step = 0
+def train():
+    global n_trained_step
+    n_trained_step += 1
+    # tinn.utils.meshgrid_coord_2d(block_size[0], block_size[1], training_batch)  # test
+    tinn.utils.generate_random_uniform_2d(training_batch)   # 1 ms
+    tinn.utils.sample_texture_from_block_2d_coord_bw(ref_img_, training_batch, training_target)  # 1 ms
+    ctx = trainer.training_step(training_batch, training_target)    # 3000 ms...
+    loss_val = ctx.loss[None]
+    print(f'# Step {n_trained_step} \t loss: {loss_val:.4f} \t')
+
+def infer():
+    global vis_img
+    network.inference_all(inference_batch, prediction)  # 1000 ms...
+    tinn.utils.flatten_2d_grid_ouput_bw(block_size[0], block_size[1], prediction, vis_img_bw) # 1ms
+    vis_img = vis_img_bw
+
+def eval():
+    loss.loss_all(1., prediction, ground_truth, eval_losses)
 
 # gui
 vis_wh = (int(vis_scale * whc[0]), int(vis_scale * whc[1]))
 window = ti.ui.Window('visualizer', vis_wh)
 canvas = window.get_canvas()
+train()
+infer()
 
-prev_time = time.time()
-n_trained_step = 0
-is_end = False
+loss_txt = ''
 while window.running:
-    # train
-    # if window.is_pressed(' '):
-    if n_trained_step < n_training_steps:
-        n_trained_step += 1
-        tinn.utils.generate_random_uniform_2d(training_batch)   # 1 ms
-        tinn.utils.sample_texture_from_block_2d_coord(ref_img_, training_batch, training_target)  # 1 ms
-        ctx = trainer.training_step_all(training_batch, training_target)    # 3000 ms...
-        loss_val = ctx.loss[None]
-
-        # visualize
-        if n_trained_step % vis_interval == 0:
-            elapsed_time = time.time() - prev_time
-            print(f'# Step {n_trained_step} \t loss: {loss_val:.4f} \t elapsed time: {elapsed_time * 1e3} ms')
-
-            network.inference_all(inference_batch, prediction)  # 1000 ms...
-            tinn.utils.flatten_2d_grid_ouput(block_size[0], block_size[1], prediction, vis_img_rgb) # 1ms
-            vis_img = vis_img_rgb
-            prev_time = time.time()
-
-    # end train
-    # else:
-    #     if not is_end:
-    #         is_end = True
-    #         print(f"End training {n_trained_step} steps.")
-
-
-    # debug
     cursor_x, cursor_y = window.get_cursor_pos()
     cursor_xi = int(cursor_x * whc[0])
     cursor_yi = int(cursor_y * whc[1])
@@ -128,24 +118,57 @@ while window.running:
     cursor_block_xmi = cursor_xi % block_size[0]
     cursor_block_yni = cursor_yi // block_size[1]
     cursor_block_ymi = cursor_yi % block_size[1]
+    
+    gui = window.get_gui()
+    gui.text(f"cursor: {cursor_xi} {cursor_yi}")
+    gui.text(f"cursor block: {cursor_block_xni} {cursor_block_yni}")
+    gui.text(f"cursor mod: {cursor_block_xmi} {cursor_block_ymi}")
+    gui.text(loss_txt)
+    
+    if window.is_pressed(ti.ui.LMB):
+        infer()
+        eval()
+        one_loss = eval_losses[cursor_block_ymi * block_size[0] + cursor_block_xmi, cursor_block_xni, cursor_block_yni]
+        loss_txt = f"loss_val {one_loss} at {cursor_xi} {cursor_yi}"
 
+    # train
+    # if window.is_pressed('t'):
+    train()
+
+    # inference
+    if window.is_pressed('i'):
+        print('inference')
+        infer()
+
+    # reference
     if window.is_pressed('r'):
-        tinn.utils.flatten_2d_grid_ouput(block_size[0], block_size[1], training_target, vis_img_rgb)
-        vis_img = vis_img_rgb
-    if window.is_pressed(' '):
-        vis_img = vis_img_rgb
+        print('reference')
+        tinn.utils.flatten_2d_grid_ouput_bw(block_size[0], block_size[1], ground_truth, vis_img_bw)
+        vis_img = vis_img_bw
+
+    # loss
     if window.is_pressed('l'):
-        loss.loss_all(1., prediction, ground_truth, eval_losses)
+        print('loss')
+        eval()
         tinn.utils.flatten_2d_grid_ouput(block_size[0], block_size[1], eval_losses, vis_img_bw) # 1ms
         vis_img = vis_img_bw
 
-    if window.is_pressed('d'):
-        # layers = network.layers_l
-        # print(layers[0].grad)
+    # encoding
+    if window.is_pressed('e'):
+        print('encoding')
         encoded = network.encode_vf_train
         print(encoded)
+    
+    # profiler
     if window.is_pressed('p'):
         ti.profiler.print_kernel_profiler_info()
 
+    # runtime
+    if window.is_pressed(' '):
+        layers = network.layers_l
+        encoded_train = network.encode_vf_train
+        encoded_eval = network.encode_vf_eval
+        print('break here')
+        
     canvas.set_image(vis_img)
     window.show()
