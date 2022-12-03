@@ -265,7 +265,7 @@ class Network:
 
     @ti.kernel
     def init_weight(self, f: ti.template()):
-        q = ti.f32(f.n / f.m) * 0.05  ### IMPORTANT scale
+        q = ti.f32(f.n / f.m) * 0.5  ### IMPORTANT scale
         for I in ti.grouped(f):
             for n in ti.static(range(f.n)):
                 for m in ti.static(range(f.m)):
