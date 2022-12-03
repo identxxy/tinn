@@ -41,8 +41,6 @@ class Encoding:
     def frequency(self, input_v: ti.template(), output_v: ti.template()):
         for i in ti.static(range(input_v.n)):
             for f in ti.static(range(self.n_frequencies)):
-                # output_v[2 * i * f + 0] = ti.cos(input_v[i] * (2**f) * 2 * pi)
-                # phase = f / self.n_frequencies
                 output_v[2 * (input_v.n * f + i) + 0] = ti.cos( (input_v[i] * (2**f) ) * 2 * pi)
                 output_v[2 * (input_v.n * f + i) + 1] = ti.sin( (input_v[i] * (2**f) ) * 2 * pi)
 

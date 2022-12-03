@@ -3,26 +3,26 @@ import numpy as np
 import json
 import imageio
 import time
+import matplotlib.pyplot as plt
 
 import tinn
 
 #### Settings ####
 config_path = 'data/dev.json'
-ref_img_path = 'data/images/albert-fit.jpg'
-batch_size = 2 ** 8
+ref_img_path = 'data/images/test.png'
+batch_size = 8 ** 2
 n_input_dims = 2    # 2D image coord
 n_output_dims = 3   # RGB color
 
-block_size = (16, 16) # each block_size pixel use a network.
+block_size = (8, 8) # each block_size pixel use a network.
 
 vis_interval = 10
-vis_scale = 2
+vis_scale = 50
 ##################
 
 #### Load ####
 with open(config_path) as f:
     config = json.load(f)
-
 # need to rotate the image to fit taichi
 ref_img = imageio.imread(ref_img_path)[::-1].T
 print(f"Read image of shape {ref_img.shape}")
@@ -35,7 +35,7 @@ x_n_i = ref_img.shape[0] // block_size[0]
 x_b_i = (ref_img.shape[0] % block_size[0]) // 2
 y_n_i = ref_img.shape[1] // block_size[1]
 y_b_i = (ref_img.shape[1] % block_size[1]) // 2
-ref_img = ref_img[x_b_i:x_b_i + x_n_i * block_size[0], y_b_i: y_b_i + y_n_i * block_size[1]]
+ref_img = ref_img[x_b_i:x_n_i * block_size[0], y_b_i: y_n_i * block_size[1]]
 
 grid_shape = (x_n_i, y_n_i)     #### IMPORTANT
 
@@ -74,8 +74,8 @@ tinn.utils.meshgrid_coord_2d(block_size[0], block_size[1], inference_batch)
 tinn.utils.sample_texture_from_block_2d_coord(ref_img_, inference_batch, ground_truth)
 
 # non-random train
-# tinn.utils.meshgrid_coord_2d(block_size[0], block_size[1], training_batch)    # test
-# tinn.utils.sample_texture_from_block_2d_coord(ref_img_, training_batch, training_target)  # 1 ms
+tinn.utils.meshgrid_coord_2d(block_size[0], block_size[1], training_batch)    # test
+tinn.utils.sample_texture_from_block_2d_coord(ref_img_, training_batch, training_target)  # 1 ms
 
 mask = ti.field(ti.u8, shape=grid_shape)
 
@@ -105,15 +105,15 @@ while window.running:
     cursor_block_yni = cursor_yi // block_size[1]
     cursor_block_ymi = cursor_yi % block_size[1]
 
-    gui.text("Press <space> to train all NN.")
-    gui.text("Click a block to train that one NN.")
+    # gui.text("Press <space> to train all NN.")
+    # gui.text("Click a block to train that one NN.")
 
     # train
     if window.is_pressed(' '):
         selected_block = (cursor_block_xni, cursor_block_yni)
         n_trained_step += 1
-        tinn.utils.generate_random_uniform_2d(training_batch)   # 1 ms
-        tinn.utils.sample_texture_from_block_2d_coord(ref_img_, training_batch, training_target)  # 1 ms
+        # tinn.utils.generate_random_uniform_2d(training_batch)   # 1 ms
+        # tinn.utils.sample_texture_from_block_2d_coord(ref_img_, training_batch, training_target)  # 1 ms
         ctx = trainer.training_step_all(training_batch, training_target)
         loss_val = ctx.loss[None]
         print(f'# Step ALL NN {n_trained_step} \t loss: {loss_val:.4f}')
@@ -128,29 +128,31 @@ while window.running:
     # visualize
     curr_time = time.time()
     if curr_time - prev_time > 1.: # 1FPS
+    # if window.is_pressed('d'):
         prev_time = curr_time
         network.inference_all(inference_batch, prediction)  # 1000 ms...
         tinn.utils.flatten_2d_grid_ouput(block_size[0], block_size[1], prediction, vis_img_rgb) # 1ms
         vis_img = vis_img_rgb
 
     if window.is_pressed('t'):
-        if batch_size != block_size[0] * block_size[1]:
-            print("Cannot visualize training_batch, batch_size not fit block_size")
-        else:
-            tinn.utils.flatten_2d_grid_ouput(block_size[0], block_size[1], training_batch, vis_img_rgb)
-            vis_img = vis_img_rgb
+        tinn.utils.flatten_2d_grid_ouput(block_size[0], block_size[1], training_batch, vis_img_rgb)
+        vis_img = vis_img_rgb
     if window.is_pressed('g'):
-        if batch_size != block_size[0] * block_size[1]:
-            print("Cannot visualize training_target, batch_size not fit block_size")
-        else:
-            tinn.utils.flatten_2d_grid_ouput(block_size[0], block_size[1], training_target, vis_img_rgb)
-            vis_img = vis_img_rgb
+        tinn.utils.flatten_2d_grid_ouput(block_size[0], block_size[1], training_target, vis_img_rgb)
+        vis_img = vis_img_rgb
     if window.is_pressed('i'):
         tinn.utils.flatten_2d_grid_ouput(block_size[0], block_size[1], inference_batch, vis_img_rgb)
         vis_img = vis_img_rgb
     if window.is_pressed('r'):
         tinn.utils.flatten_2d_grid_ouput(block_size[0], block_size[1], ground_truth, vis_img_rgb)
         vis_img = vis_img_rgb
+
+    if window.is_pressed('f'):
+        encoded_train = network.encode_vf_train
+        encoded_eval = network.encode_vf_eval
+        encoded_train_np = encoded_train.to_numpy()
+        encoded_eval_np = encoded_eval.to_numpy()
+        print('break here')
 
     if window.is_pressed('l'):
         loss.loss_all(1., prediction, ground_truth, eval_losses)

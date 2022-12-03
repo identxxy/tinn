@@ -188,8 +188,9 @@ def flatten_2d_grid_ouput(x: ti.u32, y: ti.u32, input_vf: ti.template(), output_
         grid_yn = ti.i32(j // y)
         grid_ym = j % y
         batch_i = ti.i32(grid_ym * x + grid_xm)
-        for c in ti.static(range(input_vf.n)):
-            output_vf[i, j][c] = 0.0
+        # 2d vector can be fit to 3d rgb
+        for c in ti.static(range(output_vf.n)):
+            output_vf[i, j][c] = 0.
         for c in ti.static(range(input_vf.n)):
             output_vf[i, j][c] = input_vf[batch_i, grid_xn, grid_yn][c]
         
@@ -210,7 +211,7 @@ def flatten_2d_grid_ouput_bw(x: ti.u32, y: ti.u32, input_vf: ti.template(), outp
         grid_yn = ti.i32(j // y)
         grid_ym = j % y
         batch_i = ti.i32(grid_ym * x + grid_xm)
-        output_vf[i, j] = input_vf[batch_i, grid_xn, grid_yn][0]
+        output_vf[i, j] = input_vf[batch_i, grid_xn, grid_yn]
 
 @ti.kernel
 def init_mat_random(f: ti.template()):
