@@ -3,6 +3,32 @@ Try my best to implement some basic part of [tiny-cuda-nn](https://github.com/NV
 A repo for the first Taichi [Hackthon](https://forum.taichi-lang.cn/t/topic/3506).
 
 
+# How to run
+
+```
+python main.py
+```
+
+For simplication, settings are located at the head of `main.py`.  
+Network config is located at `data/*.json`
+
+# Control
+
+|key/mouse| visualied field | description |
+|-|-|-|
+`<space>` | - |train all NN | 
+click LMB | - | train the NN at cursor postion| 
+`t` | train_batch | random xy coord [0, 1)|
+`i` | inference_batch | meshgrid xy coord [0, 1) |
+`g` | train_target | sampled pixel from reference |
+`r` | reference_img | ground truth GT|
+`l` | inference_loss | inference loss to GT |
+`p` | - | print profiler info |
+||||
+
+
+# Hackthon Template
+
 ---
 
 

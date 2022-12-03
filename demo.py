@@ -10,8 +10,8 @@ import tinn
 
 #### Settings ####
 config_path = 'data/dev.json'
-ref1_img_path = 'data/images/albert-fit.jpg'
-ref0_img_path = 'data/images/hu.jpg'
+ref0_img_path = 'data/images/albert-fit.jpg'
+ref1_img_path = 'data/images/hu.jpg'
 batch_size = 2 ** 8
 n_input_dims = 2    # 2D image coord
 n_output_dims = 3   # RGB color
@@ -94,6 +94,12 @@ network = tinn.NetworkWithInputEncoding(n_input_dims, n_output_dims, config['enc
 # network = tinn.Network(n_input_dims, n_output_dims, config['network'], grid_shape)
 
 trainer = tinn.Trainer(network, optimizer, loss)
+print("Created trainer.")
+print("Dry run training to compile ti.kernel, may take some time...")
+ctx = trainer.training_step_all(training_batch, training_target, False)
+ctx = trainer.training_step_one(training_batch, training_target, mask, False)
+network.inference_all(inference_batch, prediction)
+print("Dry run Done.\n")
 
 # gui
 vis_wh = (int(vis_scale * whc[0]), int(vis_scale * whc[1]))
@@ -132,8 +138,8 @@ while window.running:
     if window.is_pressed(' '):
         selected_block = (cursor_block_xni, cursor_block_yni)
         n_trained_step += 1
-        tinn.utils.generate_random_uniform_2d(training_batch)   # 1 ms
-        tinn.utils.sample_texture_from_block_2d_coord(ref_img_, training_batch, training_target)  # 1 ms
+        tinn.utils.generate_random_uniform_2d(training_batch)
+        tinn.utils.sample_texture_from_block_2d_coord(ref_img_, training_batch, training_target)
         ctx = trainer.training_step_all(training_batch, training_target)
         loss_val = ctx.loss[None]
         print(f'# Step ALL NN {n_trained_step} \t loss: {loss_val:.4f}')
@@ -141,8 +147,8 @@ while window.running:
     if window.is_pressed(ti.ui.LMB):
         mask.fill(0)
         mask[cursor_block_xni, cursor_block_yni] = 1
-        tinn.utils.generate_random_uniform_2d(training_batch)   # 1 ms
-        tinn.utils.sample_texture_from_block_2d_coord(ref_img_, training_batch, training_target)  # 1 ms
+        tinn.utils.generate_random_uniform_2d(training_batch)
+        tinn.utils.sample_texture_from_block_2d_coord(ref_img_, training_batch, training_target)
         ctx = trainer.training_step_one(training_batch, training_target, mask)
         loss_val = ctx.loss[None]
         print(f'** Step NN grid id {cursor_block_xni} {cursor_block_yni} \t loss: {loss_val:.4f}')
@@ -151,8 +157,8 @@ while window.running:
     curr_time = time.time()
     if curr_time - prev_time > 0.1: # 10 FPS
         prev_time = curr_time
-        network.inference_all(inference_batch, prediction)  # 1000 ms...
-        tinn.utils.flatten_2d_grid_ouput(block_size[0], block_size[1], prediction, vis_img_rgb) # 1ms
+        network.inference_all(inference_batch, prediction)
+        tinn.utils.flatten_2d_grid_ouput(block_size[0], block_size[1], prediction, vis_img_rgb)
         vis_img = vis_img_rgb
 
     if window.is_pressed('t'):
@@ -176,7 +182,7 @@ while window.running:
 
     if window.is_pressed('l'):
         loss.loss_all(1., prediction, ground_truth, eval_losses)
-        tinn.utils.flatten_2d_grid_ouput_bw(block_size[0], block_size[1], eval_losses, vis_img_bw) # 1ms
+        tinn.utils.flatten_2d_grid_ouput_bw(block_size[0], block_size[1], eval_losses, vis_img_bw)
         vis_img = vis_img_bw
 
     if window.is_pressed('p'):
