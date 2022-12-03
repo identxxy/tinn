@@ -4,17 +4,17 @@
 	},
 	"optimizer": {
 		"otype": "SGD",
-		"learning_rate": 1e-2
+		"learning_rate": 2e-1
 	},
 	"encoding": {
 		"otype": "frequency",
-		"n_frequencies": 4
+		"n_frequencies": 2
 	},
 	"network": {
 		"otype": "FullyFusedMLP",
 		"activation": "ReLU",
 		"output_activation": "None",
 		"n_neurons": 4,
-		"n_hidden_layers": 2
+		"n_hidden_layers": 1
 	}
 }
