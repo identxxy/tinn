@@ -11,7 +11,7 @@ class Encoding:
             self.func = self.identity
         elif self.otype.lower() == 'frequency':
             self.n_frequencies = json['n_frequencies']
-            self.n_output_dims = n_input_dims * self.n_frequencies
+            self.n_output_dims = n_input_dims * self.n_frequencies * 2  # cos & sin
             self.func = self.frequency
         else:
             raise NotImplementedError(f'Encoding {self.otype} not support.')
@@ -24,6 +24,7 @@ class Encoding:
     ):
         for I in ti.grouped(input_vf):
             self.func(input_vf[I], output_vf[I])
+            # print('in', input_vf[I], '\nout', output_vf[I])
 
     @ti.kernel
     def encode_one(self,
@@ -37,11 +38,13 @@ class Encoding:
                     self.func(input_vf[i, I], output_vf[i, I])
 
     @ti.func
-    def frequency(self, input_vf: ti.template(), output_vf: ti.template()):
-        for f in ti.static(range(self.n_frequencies)):
-            for i in ti.static(range(input_vf.n)):
-                output_vf[2 * i * f + 0] = ti.cos(input_vf[i] * (2**f) * 2 * pi)
-                output_vf[2 * i * f + 1] = ti.sin(input_vf[i] * (2**f) * 2 * pi)
+    def frequency(self, input_v: ti.template(), output_v: ti.template()):
+        for i in ti.static(range(input_v.n)):
+            for f in ti.static(range(self.n_frequencies)):
+                # output_v[2 * i * f + 0] = ti.cos(input_v[i] * (2**f) * 2 * pi)
+                # phase = f / self.n_frequencies
+                output_v[2 * (input_v.n * f + i) + 0] = ti.cos( (input_v[i] * (2**f) ) * 2 * pi)
+                output_v[2 * (input_v.n * f + i) + 1] = ti.sin( (input_v[i] * (2**f) ) * 2 * pi)
 
     @ti.func
     def identity(self, input_vf: ti.template(), output_vf: ti.template()):
